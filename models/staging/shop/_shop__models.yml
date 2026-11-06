@@ -1,79 +1,181 @@
 version: 2
-
-# Задание 3. Описания и тесты staging-моделей.
-# Для stg_shop__orders часть тестов уже есть — допишите остальное по образцу.
-
 models:
-  - name: stg_shop__orders
-    description: "Заказы из источника: одна строка — один заказ."
-    columns:
-      - name: order_id
-        description: "Номер заказа."
-        data_tests: [unique, not_null]
-      - name: customer_id
-        description: "Клиент, оформивший заказ."
-        data_tests:
-          - not_null
-          - relationships:
-              arguments:
-                to: ref('stg_shop__customers')
-                field: customer_id
-      - name: order_status
-        description: "Статус заказа. test — тестовые заказы: в источнике они есть, в аналитику не попадают."
-        data_tests:
-          - accepted_values:
-              arguments:
-                values: ['paid', 'pending', 'returned', 'cancelled', 'test']
-      - name: order_amount
-        description: "Сумма заказа в рублях после скидок."
-
-  - name: stg_shop__customers
-    description: "Клиенты из источника: одна строка — один клиент."
-    columns:
-      - name: customer_id
-        description: "Номер клиента."
-        data_tests: [unique, not_null]
-      - name: registration_date
-        description: "Дата регистрации без времени."
-
-  - name: stg_shop__order_items
-    description: "Позиции заказов: одна строка — один товар в заказе."
-    columns:
-      - name: order_item_id
-        description: "Ключ позиции вида 101-1: номер заказа и номер товара через дефис."
-        data_tests: [unique, not_null]
-      - name: order_id
-        description: "Заказ, в который входит позиция."
-        data_tests:
-          - not_null
-          - relationships:
-              arguments:
-                to: ref('stg_shop__orders')
-                field: order_id
-      - name: gross_amount
-        description: "Сумма позиции до скидки: количество × цена."
-      - name: line_amount
-        description: "Сумма позиции после скидки."
-
-  - name: stg_shop__payments
-    description: "Платёжные операции: одна строка — одна операция. У заказа их может быть несколько."
-    columns:
-      - name: payment_id
-        description: "Номер операции."
-        data_tests: [unique, not_null]
-      - name: order_id
-        description: "Заказ, к которому относится операция."
-        data_tests:
-          - not_null
-          - relationships:
-              arguments:
-                to: ref('stg_shop__orders')
-                field: order_id
-      - name: payment_status
-        description: "Статус операции."
-        data_tests:
-          - accepted_values:
-              arguments:
-                values: ['success', 'failed', 'pending']
-      - name: is_refund
-        description: "Возврат: успешная операция с отрицательной суммой."
+- name: stg_shop__customers
+  description: 'Клиенты: одна строка на клиента.'
+  columns:
+  - name: customer_id
+    description: Номер клиента.
+    data_tests:
+    - unique
+    - not_null
+  - name: registered_at
+    description: Время регистрации.
+  - name: registration_date
+    description: Дата регистрации.
+  - name: city
+    description: Город клиента.
+  - name: acquisition_channel
+    description: Канал привлечения.
+- name: stg_shop__products
+  description: 'Товары: одна строка на товар.'
+  columns:
+  - name: product_id
+    description: Номер товара.
+    data_tests:
+    - unique
+    - not_null
+  - name: category_name
+    description: Название категории товара.
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('stg_shop__product_categories')
+          field: category_name
+  - name: brand
+    description: Бренд товара.
+  - name: product_name
+    description: Название товара.
+- name: stg_shop__product_categories
+  description: 'Категории: одна строка на узел дерева.'
+  columns:
+  - name: category_id
+    description: Номер категории.
+    data_tests:
+    - unique
+    - not_null
+  - name: parent_category_id
+    description: Номер родительской категории; NULL у корня.
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('stg_shop__product_categories')
+          field: category_id
+  - name: category_name
+    description: Название категории товара.
+    data_tests:
+    - unique
+    - not_null
+- name: stg_shop__orders
+  description: 'Заказы, включая тестовые: одна строка на заказ.'
+  columns:
+  - name: order_id
+    description: Номер заказа.
+    data_tests:
+    - unique
+    - not_null
+  - name: customer_id
+    description: Номер клиента.
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('stg_shop__customers')
+          field: customer_id
+  - name: ordered_at
+    description: Время оформления заказа.
+  - name: order_date
+    description: Дата оформления заказа.
+  - name: order_status
+    description: Статус заказа.
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments:
+          values:
+          - paid
+          - pending
+          - returned
+          - cancelled
+          - test
+  - name: order_amount
+    description: Стоимость заказа после скидок, руб.
+    data_tests:
+    - not_null
+    - non_negative
+  - name: is_test_order
+    description: Признак тестового заказа.
+    data_tests:
+    - not_null
+- name: stg_shop__order_items
+  description: 'Позиции: одна строка на пару заказа и товара.'
+  columns:
+  - name: order_item_id
+    description: 'Ключ позиции: order_id-product_id.'
+    data_tests:
+    - unique
+    - not_null
+  - name: order_id
+    description: Номер заказа.
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('stg_shop__orders')
+          field: order_id
+  - name: product_id
+    description: Номер товара.
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('stg_shop__products')
+          field: product_id
+  - name: quantity
+    description: Количество единиц товара.
+    data_tests:
+    - not_null
+    - non_negative
+  - name: unit_price
+    description: Цена единицы товара, руб.
+    data_tests:
+    - not_null
+    - non_negative
+  - name: discount_amount
+    description: Скидка на всю позицию, руб.
+    data_tests:
+    - not_null
+    - non_negative
+  - name: line_amount
+    description: Стоимость позиции после скидки, руб.
+    data_tests:
+    - not_null
+    - non_negative
+  - name: gross_amount
+    description: Стоимость позиции до скидки, руб.
+- name: stg_shop__payments
+  description: 'Платежи: одна строка на операцию.'
+  columns:
+  - name: payment_id
+    description: Номер операции.
+    data_tests:
+    - unique
+    - not_null
+  - name: order_id
+    description: Номер заказа.
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('stg_shop__orders')
+          field: order_id
+  - name: paid_at
+    description: Время операции; NULL для ожидающей оплаты.
+  - name: payment_status
+    description: Статус операции.
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments:
+          values:
+          - success
+          - failed
+          - pending
+  - name: amount
+    description: Сумма операции, руб.; отрицательная при возврате.
+    data_tests:
+    - not_null
+  - name: is_refund
+    description: Успешная операция с отрицательной суммой.
+    data_tests:
+    - not_null

@@ -1,0 +1,16 @@
+.git
+.aws
+.codex
+.agents
+.env
+.env.*
+*.pem
+*.key
+target
+logs
+dbt_packages
+.venv
+__pycache__
+.idea
+.vscode
+.DS_Store

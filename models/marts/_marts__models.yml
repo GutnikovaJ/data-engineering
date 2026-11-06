@@ -1,35 +1,223 @@
 version: 2
-
 models:
-  - name: fct_orders
-    description: >
-      Факт заказов: одна строка — один заказ. Тестовые заказы исключены.
-      К заказу пристыкованы итоги по платежам; подтверждённая покупка — статус paid
-      и хотя бы одна успешная оплата (возврат оплатой не считается).
-    columns:
-      - name: order_id
-        description: "Номер заказа."
-        data_tests: [unique, not_null]
-      - name: customer_id
-        description: "Клиент, оформивший заказ."
-      - name: order_date
-        description: "Дата заказа."
-      - name: ordered_at
-        description: "Время оформления заказа."
-      - name: order_status
-        description: "Статус заказа: paid, pending, returned, cancelled."
-      - name: order_amount
-        description: "Сумма заказа в рублях после скидок."
-      - name: paid_amount
-        description: "Сумма успешных оплат без возвратов; 0, если оплат нет."
-      - name: refunded_amount
-        description: "Сумма возвратов положительным числом; 0, если возвратов нет."
-      - name: net_paid_amount
-        description: "Оплачено минус возвращено."
-      - name: successful_payments_count
-        description: "Число успешных оплат без возвратов."
-      - name: first_paid_at
-        description: "Время первой успешной оплаты; пусто, если оплат нет."
-      - name: is_confirmed
-        description: "Подтверждённая покупка: статус paid и хотя бы одна успешная оплата."
-        data_tests: [not_null]
+- name: fct_orders
+  description: Одна строка на нетестовый заказ с итогами платежей.
+  columns:
+  - name: order_id
+    description: Номер заказа.
+    data_tests:
+    - unique
+    - not_null
+  - name: customer_id
+    description: Номер клиента.
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_customers')
+          field: customer_id
+  - name: order_date
+    description: Дата оформления заказа.
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_dates')
+          field: date_day
+  - name: ordered_at
+    description: Время оформления заказа.
+  - name: order_status
+    description: Статус заказа.
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments:
+          values:
+          - paid
+          - pending
+          - returned
+          - cancelled
+  - name: order_amount
+    description: Стоимость заказа после скидок, руб.
+    data_tests:
+    - not_null
+    - non_negative
+  - name: paid_amount
+    description: Сумма успешных оплат без возвратов, руб.
+    data_tests:
+    - not_null
+    - non_negative
+  - name: refunded_amount
+    description: Сумма возвратов положительным числом, руб.
+    data_tests:
+    - not_null
+    - non_negative
+  - name: net_paid_amount
+    description: Оплачено минус возвращено, руб.
+  - name: successful_payments_count
+    description: Количество успешных оплат без возвратов.
+  - name: first_paid_at
+    description: Время первой успешной оплаты; NULL без оплат.
+  - name: is_confirmed
+    description: '{{ doc(''confirmed_order'') }}'
+    data_tests:
+    - not_null
+  - name: items_count
+    description: Число разных товаров в заказе.
+    data_tests:
+    - not_null
+    - non_negative
+- name: fct_order_items
+  description: Одна строка на товар в нетестовом заказе; выручка по товарам и категориям.
+  columns:
+  - name: order_item_id
+    description: 'Ключ позиции: order_id-product_id.'
+    data_tests:
+    - unique
+    - not_null
+  - name: order_id
+    description: Номер заказа.
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('fct_orders')
+          field: order_id
+  - name: product_id
+    description: Номер товара.
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_products')
+          field: product_id
+  - name: customer_id
+    description: Номер клиента.
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_customers')
+          field: customer_id
+  - name: order_date
+    description: Дата оформления заказа.
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_dates')
+          field: date_day
+  - name: quantity
+    description: Количество единиц товара.
+    data_tests:
+    - not_null
+    - non_negative
+  - name: unit_price
+    description: Цена единицы товара, руб.
+  - name: discount_amount
+    description: Скидка на всю позицию, руб.
+  - name: line_amount
+    description: Стоимость позиции после скидки, руб.
+    data_tests:
+    - not_null
+    - non_negative
+  - name: is_confirmed
+    description: '{{ doc(''confirmed_order'') }}'
+    data_tests:
+    - not_null
+- name: dim_customers
+  description: 'Все клиенты, включая не купивших: одна строка на клиента.'
+  columns:
+  - name: customer_id
+    description: Номер клиента.
+    data_tests:
+    - unique
+    - not_null
+  - name: registered_at
+    description: Время регистрации.
+  - name: registration_date
+    description: Дата регистрации.
+  - name: city
+    description: Город клиента.
+  - name: acquisition_channel
+    description: Канал привлечения.
+  - name: first_confirmed_order_id
+    description: Первый подтверждённый заказ по ordered_at, затем order_id; NULL без
+      покупок.
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('fct_orders')
+          field: order_id
+  - name: first_confirmed_at
+    description: Время оформления первой подтверждённой покупки; NULL без покупок.
+  - name: confirmed_orders_count
+    description: Количество подтверждённых заказов; 0 без покупок.
+    data_tests:
+    - not_null
+    - non_negative
+  - name: confirmed_revenue
+    description: Сумма стоимости подтверждённых заказов; 0 без покупок.
+    data_tests:
+    - not_null
+    - non_negative
+  - name: is_buyer
+    description: Есть хотя бы одна подтверждённая покупка.
+    data_tests:
+    - not_null
+- name: dim_products
+  description: Одна строка на товар с брендом и полной иерархией категорий.
+  columns:
+  - name: product_id
+    description: Номер товара.
+    data_tests:
+    - unique
+    - not_null
+  - name: product_name
+    description: Название товара.
+  - name: brand
+    description: Бренд товара.
+  - name: category_name
+    description: Название категории товара.
+    data_tests:
+    - not_null
+  - name: parent_category_name
+    description: Непосредственная родительская категория; NULL у корня.
+  - name: root_category_name
+    description: Корневая категория дерева.
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments:
+          values:
+          - Electronics
+          - Home
+- name: dim_dates
+  description: 'Одна строка на день: непрерывный календарь от первой до последней
+    даты заказа.'
+  columns:
+  - name: date_day
+    description: Дата календаря.
+    data_tests:
+    - unique
+    - not_null
+  - name: year
+    description: Календарный год.
+    data_tests:
+    - not_null
+  - name: quarter
+    description: Квартал от 1 до 4.
+    data_tests:
+    - not_null
+  - name: month
+    description: Месяц от 1 до 12.
+    data_tests:
+    - not_null
+  - name: day_of_week
+    description: 'День недели ISO: понедельник 1, воскресенье 7.'
+    data_tests:
+    - not_null
+  - name: is_weekend
+    description: Суббота или воскресенье.
+    data_tests:
+    - not_null

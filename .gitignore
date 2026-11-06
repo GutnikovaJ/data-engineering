@@ -4,3 +4,26 @@ logs/
 .venv/
 .DS_Store
 .user.yml
+
+# Локальные секреты и настройки окружения
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.aws/
+.codex/
+.agents/
+
+# Python и IDE
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.idea/
+.vscode/
+
+# Резервные и временные файлы
+*.swp
+*.swo
+*~
+*.tmp
